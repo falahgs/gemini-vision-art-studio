@@ -5,6 +5,7 @@ A powerful MCP server leveraging Google's Gemini AI for advanced image generatio
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3-blue.svg)](https://www.typescriptlang.org/)
 [![Gemini AI](https://img.shields.io/badge/Gemini-AI-orange.svg)](https://deepmind.google/technologies/gemini/)
+[![smithery badge](https://smithery.ai/badge/@falahgs/gemini-vision-art-studio)](https://smithery.ai/server/@falahgs/gemini-vision-art-studio)
 
 ## ✨ Features
 
@@ -29,6 +30,15 @@ A powerful MCP server leveraging Google's Gemini AI for advanced image generatio
 
 ### Installation
 
+#### Installing via Smithery
+
+To install gemini-vision-art-studio for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@falahgs/gemini-vision-art-studio):
+
+```bash
+npx -y @smithery/cli install @falahgs/gemini-vision-art-studio --client claude
+```
+
+#### Manual Installation
 ```bash
 # Clone the repository
 git clone https://github.com/falahgs/gemini-vision-art-studio.git
