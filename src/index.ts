@@ -57,6 +57,23 @@ const model = 'gemini-2.0-flash-exp-image-generation';
 // Add environment check for remote operation
 const IS_REMOTE = process.env.IS_REMOTE === 'true';
 
+// Define output directories
+const OUTPUT_DIR = IS_REMOTE ? '/app/output' : join(process.cwd(), 'output');
+const TEMP_DIR = IS_REMOTE ? '/app/temp' : join(process.cwd(), 'temp');
+
+// Create necessary directories
+function ensureDirectoriesExist() {
+  [OUTPUT_DIR, TEMP_DIR].forEach(dir => {
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+      console.log(`Created directory: ${dir}`);
+    }
+  });
+}
+
+// Call this when server starts
+ensureDirectoriesExist();
+
 // Define available tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
@@ -110,25 +127,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   if (request.params.name === "generate_3d_cartoon") {
     const { prompt, fileName } = request.params.arguments as { prompt: string; fileName: string };
     
-    // Add 3D cartoon-specific context to the prompt
-    const cartoonPrompt = `Generate a 3D style cartoon image for kids: ${prompt}. The image should be colorful, playful, and child-friendly. Use bright colors, soft shapes, and a fun, engaging style that appeals to children. Make it look like a high-quality 3D animated character or scene.`;
-    
-    const contents = [
-      {
-        role: 'user',
-        parts: [
-          {
-            text: cartoonPrompt,
-          },
-        ],
-      },
-    ];
-
     try {
       const response = await ai.models.generateContentStream({
         model,
         config,
-        contents,
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: prompt,
+              },
+            ],
+          },
+        ],
       });
 
       for await (const chunk of response) {
@@ -148,11 +160,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
           // Create and save HTML file
           const htmlFileName = `${fileName}_preview.html`;
-          const htmlPath = join(process.cwd(), 'output', htmlFileName);
+          const htmlPath = join(OUTPUT_DIR, htmlFileName);
           writeFileSync(htmlPath, previewHtml, 'utf8');
+          console.log(`Preview HTML saved to: ${htmlPath}`);
 
           // Try to open in browser but don't fail if it doesn't work
-          await openInBrowser(htmlPath).catch(console.error);
+          if (!IS_REMOTE) {
+            await openInBrowser(htmlPath).catch(console.error);
+          }
 
           return {
             toolResult: {
@@ -191,27 +206,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
 
     try {
-      // Try both the direct path and workspace path
-      let finalImagePath = imagePath;
-      if (!existsSync(imagePath)) {
-        const workspaceImagePath = join(process.cwd(), imagePath);
-        if (!existsSync(workspaceImagePath)) {
-          throw new McpError(ErrorCode.InternalError, `Image file not found at either:\n${imagePath}\n${workspaceImagePath}`);
-        }
-        finalImagePath = workspaceImagePath;
-      }
-
-      // Read the file as a buffer
-      const imageBuffer = readFileSync(finalImagePath);
-      const mimeType = mime.getType(finalImagePath) || 'image/jpeg';
-
       // Create a temporary file with the correct name and extension
-      const tempDir = join(process.cwd(), 'temp');
-      if (!existsSync(tempDir)) {
-        mkdirSync(tempDir, { recursive: true });
+      const tempFilePath = join(TEMP_DIR, `temp_${Date.now()}${extname(imagePath)}`);
+      
+      // If the image is a remote URL, download it first
+      if (imagePath.startsWith('http')) {
+        // Add fetch import at the top if not already present
+        const response = await fetch(imagePath);
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        writeFileSync(tempFilePath, buffer);
+      } else {
+        // Try both the direct path and workspace path
+        let finalImagePath = imagePath;
+        if (!existsSync(imagePath)) {
+          const workspaceImagePath = join(process.cwd(), imagePath);
+          if (!existsSync(workspaceImagePath)) {
+            throw new McpError(ErrorCode.InternalError, `Image file not found at either:\n${imagePath}\n${workspaceImagePath}`);
+          }
+          finalImagePath = workspaceImagePath;
+        }
+        const imageBuffer = readFileSync(finalImagePath);
+        writeFileSync(tempFilePath, imageBuffer);
       }
-      const tempFilePath = join(tempDir, `temp_${Date.now()}${extname(finalImagePath)}`);
-      writeFileSync(tempFilePath, imageBuffer);
 
       // Upload the image to Google AI
       const uploadedFile = await ai.files.upload({
@@ -236,7 +253,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               fileData: {
                 fileUri: uploadedFile.uri,
-                mimeType: mimeType
+                mimeType: mime.getType(imagePath) || 'image/jpeg'
               }
             },
             {
@@ -287,7 +304,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Create preview HTML
       const previewHtml = createImagePreview(generatedImagePath);
       const htmlFileName = `${outputFileName}_preview.html`;
-      const htmlPath = join(process.cwd(), 'output', htmlFileName);
+      const htmlPath = join(OUTPUT_DIR, htmlFileName);
       writeFileSync(htmlPath, previewHtml, 'utf8');
 
       // Try to open in browser but don't fail if it doesn't work
@@ -331,13 +348,9 @@ await server.connect(transport);
 
 // Utility functions
 async function saveImageBuffer(buffer: Buffer, fileName: string): Promise<string> {
-  const outputDir = join(process.cwd(), 'output');
-  if (!existsSync(outputDir)) {
-    mkdirSync(outputDir, { recursive: true });
-  }
-  
-  const outputPath = join(outputDir, fileName);
+  const outputPath = join(OUTPUT_DIR, fileName);
   writeFileSync(outputPath, buffer);
+  console.log(`Image saved to: ${outputPath}`);
   return outputPath;
 }
 

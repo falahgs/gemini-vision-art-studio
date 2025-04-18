@@ -81,10 +81,26 @@ Replace:
 When running the server remotely:
 1. Set `IS_REMOTE=true` in your environment or Claude Desktop configuration
 2. The server will:
+   - Create necessary directories automatically:
+     - `/app/output`: For generated images and previews
+     - `/app/temp`: For temporary processing files
    - Skip browser preview attempts
-   - Save all files to the `output` directory
-   - Return file paths in the response
-3. Access the generated files directly from the `output` directory
+   - Save all files to the `/app/output` directory
+   - Return absolute file paths in the response
+3. Directory Structure in Remote Mode:
+   ```
+   /app/
+   ├── output/           # Generated images and previews
+   │   ├── image1.png
+   │   └── image1_preview.html
+   └── temp/            # Temporary processing files
+   ```
+
+4. Troubleshooting Remote Usage:
+   - Ensure the `/app` directory exists and is writable
+   - Check the console output for directory creation messages
+   - Look for "Image saved to:" messages in the logs
+   - File paths in the response will be absolute paths
 
 ### Running the Server
 
