@@ -54,6 +54,9 @@ const config = {
 
 const model = 'gemini-2.0-flash-exp-image-generation';
 
+// Add environment check for remote operation
+const IS_REMOTE = process.env.IS_REMOTE === 'true';
+
 // Define available tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
@@ -148,8 +151,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const htmlPath = join(process.cwd(), 'output', htmlFileName);
           writeFileSync(htmlPath, previewHtml, 'utf8');
 
-          // Open in browser
-          await openInBrowser(htmlPath);
+          // Try to open in browser but don't fail if it doesn't work
+          await openInBrowser(htmlPath).catch(console.error);
 
           return {
             toolResult: {
@@ -159,14 +162,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               content: [
                 {
                   type: "text",
-                  text: `Image saved to: ${savedPath}\nPreview opened in browser: ${htmlPath}`
+                  text: `Image generated successfully!\nImage saved to: ${savedPath}\nPreview HTML: ${htmlPath}`
                 },
                 {
                   type: "html",
                   html: previewHtml
                 }
               ],
-              message: "Image generated and preview opened in browser"
+              message: IS_REMOTE ? "Image generated successfully (remote mode)" : "Image generated and preview opened in browser"
             }
           };
         }
@@ -287,8 +290,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const htmlPath = join(process.cwd(), 'output', htmlFileName);
       writeFileSync(htmlPath, previewHtml, 'utf8');
 
-      // Open in browser
-      await openInBrowser(htmlPath);
+      // Try to open in browser but don't fail if it doesn't work
+      await openInBrowser(htmlPath).catch(console.error);
 
       return {
         toolResult: {
@@ -299,14 +302,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: "text",
-              text: `Image saved to: ${generatedImagePath}\nPreview opened in browser: ${htmlPath}\nAI Response: ${responseText}`
+              text: `Image processed successfully!\nImage saved to: ${generatedImagePath}\nPreview HTML: ${htmlPath}\nAI Response: ${responseText}`
             },
             {
               type: "html",
               html: previewHtml
             }
           ],
-          message: "Image processed and preview opened in browser"
+          message: IS_REMOTE ? "Image processed successfully (remote mode)" : "Image processed and preview opened in browser"
         }
       };
 
@@ -348,6 +351,11 @@ function createImagePreview(imagePath: string): string {
 }
 
 async function openInBrowser(filePath: string): Promise<void> {
+  if (IS_REMOTE) {
+    console.log('Running in remote environment - skipping browser preview');
+    return;
+  }
+
   try {
     const command = process.platform === 'win32' 
       ? `start "" "${filePath}"`
@@ -357,7 +365,7 @@ async function openInBrowser(filePath: string): Promise<void> {
     
     await execAsync(command);
   } catch (error) {
-    console.error('Error opening file in browser:', error);
-    throw new McpError(ErrorCode.InternalError, 'Failed to open file in browser');
+    console.error('Warning: Could not open browser preview:', error);
+    // Don't throw error, just log warning
   }
 } 

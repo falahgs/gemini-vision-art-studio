@@ -45,6 +45,8 @@ Create a `.env` file in the root directory:
 
 ```env
 GEMINI_API_KEY=your_api_key_here
+# Set to true if running in a remote environment (no browser preview)
+IS_REMOTE=true
 ```
 
 2. Claude Desktop Configuration:
@@ -59,7 +61,8 @@ Add the server configuration to your Claude Desktop config file at `%AppData%\Cl
         "PATH_TO_YOUR_PROJECT\\build\\src\\index.js"
       ],
       "env": {
-        "GEMINI_API_KEY": "your_gemini_api_key_here"
+        "GEMINI_API_KEY": "your_gemini_api_key_here",
+        "IS_REMOTE": "true"
       }
     }
   }
@@ -72,6 +75,16 @@ Replace:
 
 > 💡 **Note**: On Windows, the config file is typically located at:
 > `C:\Users\YourUsername\AppData\Roaming\Claude\claude_desktop_config.json`
+
+### Remote Usage
+
+When running the server remotely:
+1. Set `IS_REMOTE=true` in your environment or Claude Desktop configuration
+2. The server will:
+   - Skip browser preview attempts
+   - Save all files to the `output` directory
+   - Return file paths in the response
+3. Access the generated files directly from the `output` directory
 
 ### Running the Server
 
